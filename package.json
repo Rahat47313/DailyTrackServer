@@ -1,0 +1,22 @@
+{
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rahat47313/DailyTrackServer.git"
+  },
+  "author": "Rahat47313",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Rahat47313/DailyTrackServer/issues"
+  },
+  "homepage": "https://github.com/Rahat47313/DailyTrackServer#readme"
+}
