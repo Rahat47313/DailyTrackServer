@@ -1,21 +1,33 @@
 require("dotenv").config();
 
 const express = require("express");
-const app = express();
+const mongoose = require("mongoose");
 const cors = require("cors");
-const port = process.env.PORT;
 const notesRouter = require("./routes/notes");
+
+const app = express();
+const port = process.env.PORT;
 
 //middleware
 app.use(express.json());
-app.use(cors())
+app.use(cors());
 app.use((req, res, next) => {
-  console.log(req.path, req.method)
-  next()
-})
+  console.log(req.path, req.method);
+  next();
+});
 
+//routes
 app.use("/api/notes", notesRouter);
 
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
-});
+//connect to db
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    //listen for requests
+    app.listen(port, () => {
+      console.log(`Connected to database and listening on port ${port}`);
+    });
+  })
+  .catch((error) => {
+    console.log(error);
+  });
