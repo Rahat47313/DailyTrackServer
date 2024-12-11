@@ -3,7 +3,9 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const cron = require("node-cron");
 const notesRouter = require("./routes/notes");
+const attendanceRouter = require("./routes/attendance");
 
 const app = express();
 const port = process.env.PORT;
@@ -19,6 +21,7 @@ app.use((req, res, next) => {
 
 //routes
 app.use("/api/notes", notesRouter);
+app.use("/api/attendance", attendanceRouter)
 
 //connect to db
 mongoose
@@ -32,3 +35,11 @@ mongoose
   .catch((error) => {
     console.log(error);
   });
+
+const { autoClockOut } = require("./controllers/personalAttendanceController");
+
+// Schedule a task to run at 11:59 PM every day
+cron.schedule("59 23 * * *", async () => {
+  await autoClockOut();
+  console.log("Auto clock-out completed at 11:59 PM");
+});

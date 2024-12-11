@@ -13,41 +13,42 @@ const dailyAttendanceSchema = new Schema({
     enum: ["Present", "Absent", "-"],
     required: true,
   },
+  clockInTime: {
+    type: String,
+    default: null,
+  },
+  clockOutTime: {
+    type: String,
+    default: null,
+  },
+  specialCondition: {
+    type: String,
+    default: null,
+  },
 });
 
 // Schema for monthly attendance
 const monthlyAttendanceSchema = new Schema({
-  month: {
-    type: String,
-    required: true,
-  },
   days: {
     type: Map,
     of: dailyAttendanceSchema,
-    required: true,
   },
 });
 
 // Schema for yearly attendance
 const yearlyAttendanceSchema = new Schema({
-  year: {
-    type: String,
-    required: true,
-  },
   months: {
     type: Map,
     of: monthlyAttendanceSchema,
-    required: true,
   },
 });
 
 // Main schema for personal attendance
 const personalAttendanceSchema = new Schema({
-    attendance: {
-        type: Map,
-        of: yearlyAttendanceSchema,
-        required: true,
-      },
+  years: {
+    type: Map,
+    of: yearlyAttendanceSchema,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model("PersonalAttendance", personalAttendanceSchema);

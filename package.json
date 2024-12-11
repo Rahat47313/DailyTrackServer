@@ -4,7 +4,8 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "mongodb": "^6.11.0",
-    "mongoose": "^8.8.4"
+    "mongoose": "^8.8.4",
+    "node-cron": "^3.0.3"
   },
   "name": "server",
   "version": "1.0.0",
