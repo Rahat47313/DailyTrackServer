@@ -45,7 +45,7 @@ const categorySchema = new Schema({
   color: {
     type: String,
     required: true,
-    default: "bg-gray-500"
+    default: "bg-[#000000]"
   }
 }, { timestamps: true });
 
