@@ -6,6 +6,7 @@ const cors = require("cors");
 const cron = require("node-cron");
 const notesRouter = require("./routes/notes");
 const attendanceRouter = require("./routes/attendance");
+const tasksRouter = require("./routes/tasks");
 
 const app = express();
 const port = process.env.PORT;
@@ -22,6 +23,7 @@ app.use((req, res, next) => {
 //routes
 app.use("/api/notes", notesRouter);
 app.use("/api/attendance", attendanceRouter)
+app.use("/api/tasks", tasksRouter);
 
 //connect to db
 mongoose
