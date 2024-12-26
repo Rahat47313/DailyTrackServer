@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 // Get all tasks
 const getTasks = async (req, res) => {
   try {
-    const tasks = await Task.find({}).populate('category');
+    const tasks = await Task.find({ user: req.user._id }).populate("category");
     res.status(200).json(tasks);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -14,9 +14,11 @@ const getTasks = async (req, res) => {
 // Get tasks by category
 const getTasksByCategory = async (req, res) => {
   const { categoryId } = req.params;
-  
+
   try {
-    const tasks = await Task.find({ category: categoryId }).populate('category');
+    const tasks = await Task.find({ category: categoryId }).populate(
+      "category"
+    );
     res.status(200).json(tasks);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -33,7 +35,8 @@ const createTask = async (req, res) => {
       description,
       dueDate,
       category: categoryId,
-      subtasks: subtasks || []
+      subtasks: subtasks || [],
+      user: req.user._id,
     });
     res.status(200).json(task);
   } catch (error) {
@@ -78,7 +81,7 @@ const getCategories = async (req, res) => {
         const tasks = await Task.find({ category: category._id });
         return {
           ...category.toObject(),
-          tasks: tasks
+          tasks: tasks,
         };
       })
     );
@@ -123,7 +126,9 @@ const deleteCategory = async (req, res) => {
   try {
     await Task.deleteMany({ category: id });
     await Category.findByIdAndDelete(id);
-    res.status(200).json({ message: "Category and associated tasks deleted successfully" });
+    res
+      .status(200)
+      .json({ message: "Category and associated tasks deleted successfully" });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -138,5 +143,5 @@ module.exports = {
   getCategories,
   createCategory,
   updateCategory,
-  deleteCategory
+  deleteCategory,
 };

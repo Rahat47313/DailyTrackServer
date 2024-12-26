@@ -4,6 +4,9 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const cron = require("node-cron");
+const { authMiddleware } = require('./middleware/auth');
+const authRouter = require('./routes/auth');
+const adminRouter = require('./routes/admin');
 const notesRouter = require("./routes/notes");
 const attendanceRouter = require("./routes/attendance");
 const tasksRouter = require("./routes/tasks");
@@ -21,9 +24,11 @@ app.use((req, res, next) => {
 });
 
 //routes
-app.use("/api/notes", notesRouter);
-app.use("/api/attendance", attendanceRouter)
-app.use("/api/tasks", tasksRouter);
+app.use('/api/auth', authRouter);
+app.use("/api/notes", authMiddleware, notesRouter);
+app.use("/api/attendance", authMiddleware, attendanceRouter);
+app.use("/api/tasks", authMiddleware, tasksRouter);
+app.use("/api/admin", authMiddleware, adminRouter);
 
 //connect to db
 mongoose

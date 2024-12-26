@@ -44,11 +44,19 @@ const yearlyAttendanceSchema = new Schema({
 });
 
 // Main schema for personal attendance
-const personalAttendanceSchema = new Schema({
-  years: {
-    type: Map,
-    of: yearlyAttendanceSchema,
+const personalAttendanceSchema = new Schema(
+  {
+    years: {
+      type: Map,
+      of: yearlyAttendanceSchema,
+    },
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
-}, { timestamps: true });
+  { timestamps: true }
+);
 
 module.exports = mongoose.model("PersonalAttendance", personalAttendanceSchema);
