@@ -1,14 +1,30 @@
-const User = require('../models/userModel');
-const bcrypt = require('bcrypt');
+const User = require("../models/userModel");
+const bcrypt = require("bcrypt");
 
 const getAllUsers = async (req, res) => {
   try {
-    // Super Admin can see all users, Admin can only see employees
-    const query = req.user.userType === 'superAdmin' 
-      ? { userType: { $ne: 'superAdmin' } }
-      : { userType: 'employee' };
-    
-    const users = await User.find(query, '-password');
+    let query = {};
+
+    switch (req.user.userType) {
+      case "superAdmin":
+        // Super Admin sees everyone
+        query = {};
+        break;
+      case "admin":
+        // Admin sees admins and employees, but not super admins
+        query = {
+          userType: { $in: ["admin", "employee"] },
+        };
+        break;
+      case "employee":
+        // Employees can't access user management
+        return res.status(403).json({ error: "Unauthorized access" });
+    }
+
+    const users = await User.find(query)
+      .select("-password")
+      .sort({ userType: 1, name: 1 }); // Sort by userType then name
+
     res.status(200).json(users);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -18,32 +34,39 @@ const getAllUsers = async (req, res) => {
 const createUser = async (req, res) => {
   const { name, email, password, userType } = req.body;
 
-  if (userType === 'admin' && req.user.userType !== 'superAdmin') {
-    return res.status(403).json({ error: 'Only Super Admin can create admin users' });
-  }
-
-  if (userType === 'superAdmin') {
-    return res.status(403).json({ error: 'Super Admin cannot be created' });
+  // Only super admin can create super admin
+  if (userType === "superAdmin") {
+    return res.status(403).json({ error: "Super Admin cannot be created" });
   }
 
   try {
+    // Verify if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    
+
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
-      userType
+      userType,
+      active: true
     });
-    
-    res.status(201).json({ 
+
+    console.log('User created:', user._id);
+
+    res.status(201).json({
       _id: user._id,
       name: user.name,
       email: user.email,
-      userType: user.userType
+      userType: user.userType,
     });
   } catch (error) {
+    console.error('Create user error:', error); 
     res.status(400).json({ error: error.message });
   }
 };
@@ -53,20 +76,24 @@ const deleteUser = async (req, res) => {
     const userToDelete = await User.findById(req.params.id);
 
     if (!userToDelete) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     // Super Admin cannot be deleted
-    if (userToDelete.userType === 'superAdmin') {
-      return res.status(403).json({ error: 'Super Admin cannot be deleted' });
+    if (userToDelete.userType === "superAdmin") {
+      return res.status(403).json({ error: "Super Admin cannot be deleted" });
     }
 
-    // Regular admin can only delete employees
-    if (req.user.userType === 'admin' && userToDelete.userType !== 'employee') {
-      return res.status(403).json({ error: 'Unauthorized to delete this user' });
+    // Admin can only deactivate employees
+    if (req.user.userType === "admin" && userToDelete.userType !== "employee") {
+      return res
+        .status(403)
+        .json({ error: "Unauthorized to deactivate this user" });
     }
-    await User.findByIdAndDelete(req.params.id);
-    res.status(200).json({ message: 'User deleted successfully' });
+
+    // Soft delete - set active to false
+    await User.findByIdAndUpdate(req.params.id, { active: false });
+    res.status(200).json({ message: "User deactivated successfully" });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
