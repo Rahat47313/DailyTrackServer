@@ -43,7 +43,7 @@ mongoose
     console.log(error);
   });
 
-const { autoClockOut } = require("./controllers/personalAttendanceController");
+const { autoClockOut } = require("./controllers/attendanceController");
 
 // Schedule a task to run at 11:59 PM every day
 cron.schedule("59 23 * * *", async () => {

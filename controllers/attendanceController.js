@@ -1,10 +1,25 @@
-const PersonalAttendance = require("../models/personalAttendanceModel");
+const Attendance = require("../models/attendanceModel");
 const mongoose = require("mongoose");
 
 // Get all attendance records
 const getAllAttendance = async (req, res) => {
   try {
-    const attendanceRecords = await PersonalAttendance.find({});
+    let query = {};
+    
+    // If superAdmin, can see all
+    if (req.user.userType === 'superAdmin') {
+      query = {};
+    }
+    // If admin, can see self and employees
+    else if (req.user.userType === 'admin') {
+      query = { visibleTo: req.user._id };
+    }
+    // If employee, can only see own attendance
+    else {
+      query = { user: req.user._id };
+    }
+
+    const attendanceRecords = await Attendance.find(query);
     res.status(200).json(attendanceRecords);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -16,10 +31,31 @@ const getAttendanceByYear = async (req, res) => {
   const { year } = req.params;
 
   try {
-    const attendanceRecord = await PersonalAttendance.findOne({
-      user: req.user._id,
-      "attendance.year": year,
-    });
+    let query = { "years": { $exists: true } };
+
+    // Filter based on user type
+    if (req.user.userType === 'superAdmin') {
+      // Can see all attendance records
+    } else if (req.user.userType === 'admin') {
+      // Can see admins and employees
+      query = {
+        $and: [
+          query,
+          {
+            $or: [
+              { "user": req.user._id },
+              { "user": { $in: await User.find({ userType: { $in: ['admin', 'employee'] } }).distinct('_id') } }
+            ]
+          }
+        ]
+      };
+    } else {
+      // Employees can only see their own
+      query = { ...query, user: req.user._id };
+    }
+
+    const attendanceRecords = await Attendance.find(query)
+      .populate('user', 'name email userType');
 
     if (!attendanceRecord || !attendanceRecord.years) {
       return res.status(200).json({ attendance: {} });
@@ -64,7 +100,7 @@ const getAttendanceByMonth = async (req, res) => {
   const { year, month } = req.params;
 
   try {
-    const attendanceRecord = await PersonalAttendance.findOne({
+    const attendanceRecord = await Attendance.findOne({
       "attendance.year": year,
     });
     if (!attendanceRecord || !attendanceRecord.attendance[year].months[month]) {
@@ -81,7 +117,7 @@ const getAttendanceByDate = async (req, res) => {
   const { year, month, day } = req.params;
 
   try {
-    const attendanceRecord = await PersonalAttendance.findOne({
+    const attendanceRecord = await Attendance.findOne({
       "attendance.year": year,
     });
     if (
@@ -105,11 +141,11 @@ const clockIn = async (req, res) => {
   const clockInTime = new Date().toLocaleTimeString();
 
   try {
-    let attendanceRecord = await PersonalAttendance.findOne();
+    let attendanceRecord = await Attendance.findOne();
 
     if (!attendanceRecord) {
       // Create new record with initialized Maps
-      attendanceRecord = new PersonalAttendance();
+      attendanceRecord = new Attendance();
       attendanceRecord.years = new Map();
       attendanceRecord.years.set(year, {
         months: new Map([
@@ -169,7 +205,7 @@ const clockOut = async (req, res) => {
   const clockOutTime = new Date().toLocaleTimeString();
 
   try {
-    const attendanceRecord = await PersonalAttendance.findOne();
+    const attendanceRecord = await Attendance.findOne();
 
     if (!attendanceRecord || !attendanceRecord.years) {
       return res.status(404).json({ error: "Attendance record not found" });
@@ -210,7 +246,7 @@ const autoClockOut = async () => {
   const day = now.getDate().toString();
 
   try {
-    const attendanceRecord = await PersonalAttendance.findOne();
+    const attendanceRecord = await Attendance.findOne();
 
     if (!attendanceRecord || !attendanceRecord.years) {
       return;
@@ -242,7 +278,7 @@ const deleteAttendance = async (req, res) => {
   const { year, month, day } = req.params;
 
   try {
-    const attendanceRecord = await PersonalAttendance.findOne({
+    const attendanceRecord = await Attendance.findOne({
       "attendance.year": year,
     });
 

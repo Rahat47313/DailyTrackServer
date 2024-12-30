@@ -8,7 +8,7 @@ const {
   clockOut,
   deleteAttendance,
   autoClockOut,
-} = require("../controllers/personalAttendanceController");
+} = require("../controllers/attendanceController");
 
 const router = express.Router();
 
