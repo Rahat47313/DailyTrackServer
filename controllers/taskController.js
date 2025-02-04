@@ -96,7 +96,11 @@ const createCategory = async (req, res) => {
   const { name, color } = req.body;
 
   try {
-    const category = await Category.create({ name, color });
+    const category = await Category.create({ 
+      name,
+      color,
+      user: req.user._id
+    });
     res.status(200).json(category);
   } catch (error) {
     res.status(400).json({ error: error.message });
