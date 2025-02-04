@@ -35,18 +35,18 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     //listen for requests
-    app.listen(port, () => {
-      console.log(`Connected to database and listening on port ${port}`);
-    });
+    console.log("Connected to database");
   })
   .catch((error) => {
     console.log(error);
   });
 
-const { autoClockOut } = require("./controllers/attendanceController");
+// const { autoClockOut } = require("./controllers/attendanceController");
 
-// Schedule a task to run at 11:59 PM every day
-cron.schedule("59 23 * * *", async () => {
-  await autoClockOut();
-  console.log("Auto clock-out completed at 11:59 PM");
-});
+// // Schedule a task to run at 11:59 PM every day
+// cron.schedule("59 23 * * *", async () => {
+//   await autoClockOut();
+//   console.log("Auto clock-out completed at 11:59 PM");
+// });
+
+module.exports = app;
