@@ -33,4 +33,5 @@ const createSuperAdmin = async () => {
 
 createSuperAdmin();
 
-//SuperAdminPassword
+//Super admin pass: SuperAdminPassword
+//Admin 1 pass: AdminPassword

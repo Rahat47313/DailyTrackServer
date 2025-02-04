@@ -33,38 +33,80 @@ const getAttendanceByYear = async (req, res) => {
   try {
     let query = { user: req.user._id };
 
+    // Import User model
+    const User = require("../models/userModel");
+
     // Filter based on user type
     if (req.user.userType === "superAdmin") {
       // Can see all attendance records
       query = {};
     } else if (req.user.userType === "admin") {
-      // Can see admins and employees
-      query.user = {
-        $in: await User.find({
-          userType: { $in: ["admin", "employee"] },
-        }).distinct("_id"),
-      };
+      // Can see admins and employees so get their IDs
+      const userIds = await User.find({
+        userType: { $in: ["admin", "employee"] }
+      }).distinct('_id');
+
+      // query.user = {
+      //   $in: await User.find({
+      //     userType: { $in: ["admin", "employee"] },
+      //   }).distinct("_id"),
+      // };
+
+      // Add current admin's ID
+      userIds.push(req.user._id);
+      
+      query.user = { $in: userIds };
     } else {
       // Employees see only their own
       query.user = req.user._id;
     }
 
+    console.log("Query:", query); // Debug log
+    console.log("Current user:", req.user); // Debug log
+
     const attendanceRecords = await Attendance.find(query)
       .populate('user', 'name email userType')
-      .select('years user');
+      .lean(); // Convert to plain object
+      // .select('years user');
 
-    // Format data for frontend
+    // Transform Map data to plain objects for frontend
     const formattedData = {};
     attendanceRecords.forEach(record => {
+      const { user, years } = record;
+
+      // Convert years Map to object
+      const yearsObj = {};
+      Object.entries(years || {}).forEach(([yearKey, yearData]) => {
+        const monthsObj = {};
+
+        // Convert months Map to object
+        Object.entries(yearData.months || {}).forEach(([monthKey, monthData]) => {
+          const daysObj = {};
+
+          // Convert days Map to object
+          Object.entries(monthData.days || {}).forEach(([dayKey, dayData]) => {
+            daysObj[dayKey] = {
+              status: dayData.status,
+              clockInTime: dayData.clockInTime,
+              clockOutTime: dayData.clockOutTime,
+              specialCondition: dayData.specialCondition
+            };
+          });
+          monthsObj[monthKey] = { days: daysObj };
+        });
+        yearsObj[yearKey] = { months: monthsObj };
+      });
+
       formattedData[record.user._id] = {
         user: record.user,
-        years: record.years
+        years: yearsObj
       };
     });
 
+    console.log("Formatted data:", formattedData); // Debug log
     res.status(200).json(formattedData);
   } catch (error) {
-    console.error("In attendanceController; Error fetching year data:", error);
+    console.error("Error in attendanceController getAttendanceByYear: ", error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -183,24 +225,6 @@ const clockIn = async (req, res) => {
         clockInTime: clockInTime,
         clockOutTime: null,
       });
-
-      // let yearDoc = attendanceRecord.years.get(year);
-      // if (!yearDoc) {
-      //   yearDoc = { months: new Map() };
-      //   attendanceRecord.years.set(year, yearDoc);
-      // }
-
-      // let monthDoc = yearDoc.months.get(month);
-      // if (!monthDoc) {
-      //   monthDoc = { days: new Map() };
-      //   yearDoc.months.set(month, monthDoc);
-      // }
-
-      // monthDoc.days.set(day, {
-      //   day: parseInt(day),
-      //   status: "Present",
-      //   clockInTime,
-      // });
 
       attendanceRecord.markModified("years");
     }
