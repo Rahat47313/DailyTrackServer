@@ -1,6 +1,16 @@
 const Attendance = require("../models/attendanceModel");
 const mongoose = require("mongoose");
 
+const getBSTTime = () => {
+  return new Date().toLocaleString('en-US', {
+    timeZone: 'Asia/Dhaka',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+};
+
 // Get all attendance records
 const getAllAttendance = async (req, res) => {
   try {
@@ -61,9 +71,6 @@ const getAttendanceByYear = async (req, res) => {
       query.user = req.user._id;
     }
 
-    console.log("Query:", query); // Debug log
-    console.log("Current user:", req.user); // Debug log
-
     const attendanceRecords = await Attendance.find(query)
       .populate('user', 'name email userType')
       .lean(); // Convert to plain object
@@ -103,7 +110,6 @@ const getAttendanceByYear = async (req, res) => {
       };
     });
 
-    console.log("Formatted data:", formattedData); // Debug log
     res.status(200).json(formattedData);
   } catch (error) {
     console.error("Error in attendanceController getAttendanceByYear: ", error);
@@ -173,7 +179,7 @@ const getAttendanceByDate = async (req, res) => {
 // Create or update attendance record for clock-in
 const clockIn = async (req, res) => {
   const { year, month, day } = req.params;
-  const clockInTime = new Date().toLocaleTimeString();
+  const clockInTime = getBSTTime();
 
   try {
     let attendanceRecord = await Attendance.findOne({ user: req.user._id });
@@ -239,7 +245,7 @@ const clockIn = async (req, res) => {
 
 const clockOut = async (req, res) => {
   const { year, month, day } = req.params;
-  const clockOutTime = new Date().toLocaleTimeString();
+  const clockOutTime = getBSTTime();
 
   try {
     const attendanceRecord = await Attendance.findOne({ user: req.user._id });
