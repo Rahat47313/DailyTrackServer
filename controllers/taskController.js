@@ -16,9 +16,10 @@ const getTasksByCategory = async (req, res) => {
   const { categoryId } = req.params;
 
   try {
-    const tasks = await Task.find({ category: categoryId }).populate(
-      "category"
-    );
+    const tasks = await Task.find({
+      category: categoryId,
+      user: req.user._id,
+    }).populate("category");
     res.status(200).json(tasks);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -75,10 +76,13 @@ const deleteTask = async (req, res) => {
 // Get all categories
 const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find({});
+    const categories = await Category.find({ user: req.user._id });
     const categoriesWithTasks = await Promise.all(
       categories.map(async (category) => {
-        const tasks = await Task.find({ category: category._id });
+        const tasks = await Task.find({
+          category: category._id,
+          user: req.user._id,
+        });
         return {
           ...category.toObject(),
           tasks: tasks,
@@ -96,10 +100,10 @@ const createCategory = async (req, res) => {
   const { name, color } = req.body;
 
   try {
-    const category = await Category.create({ 
+    const category = await Category.create({
       name,
       color,
-      user: req.user._id
+      user: req.user._id,
     });
     res.status(200).json(category);
   } catch (error) {
