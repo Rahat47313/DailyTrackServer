@@ -4,10 +4,10 @@ const Schema = mongoose.Schema;
 
 // Schema for daily attendance
 const dailyAttendanceSchema = new Schema({
-  day: {
-    type: Number,
-    required: true,
-  },
+  // day: {
+  //   type: Number,
+  //   required: true,
+  // },
   status: {
     type: String,
     enum: ["Present", "Absent", "-"],

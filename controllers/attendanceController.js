@@ -5,13 +5,13 @@ const mongoose = require("mongoose");
 const getAllAttendance = async (req, res) => {
   try {
     let query = {};
-    
+
     // If superAdmin, can see all
-    if (req.user.userType === 'superAdmin') {
+    if (req.user.userType === "superAdmin") {
       query = {};
     }
     // If admin, can see self and employees
-    else if (req.user.userType === 'admin') {
+    else if (req.user.userType === "admin") {
       query = { visibleTo: req.user._id };
     }
     // If employee, can only see own attendance
@@ -31,66 +31,40 @@ const getAttendanceByYear = async (req, res) => {
   const { year } = req.params;
 
   try {
-    let query = { "years": { $exists: true } };
+    let query = { user: req.user._id };
 
     // Filter based on user type
-    if (req.user.userType === 'superAdmin') {
+    if (req.user.userType === "superAdmin") {
       // Can see all attendance records
-    } else if (req.user.userType === 'admin') {
+      query = {};
+    } else if (req.user.userType === "admin") {
       // Can see admins and employees
-      query = {
-        $and: [
-          query,
-          {
-            $or: [
-              { "user": req.user._id },
-              { "user": { $in: await User.find({ userType: { $in: ['admin', 'employee'] } }).distinct('_id') } }
-            ]
-          }
-        ]
+      query.user = {
+        $in: await User.find({
+          userType: { $in: ["admin", "employee"] },
+        }).distinct("_id"),
       };
     } else {
-      // Employees can only see their own
-      query = { ...query, user: req.user._id };
+      // Employees see only their own
+      query.user = req.user._id;
     }
 
     const attendanceRecords = await Attendance.find(query)
-      .populate('user', 'name email userType');
+      .populate('user', 'name email userType')
+      .select('years user');
 
-    if (!attendanceRecord || !attendanceRecord.years) {
-      return res.status(200).json({ attendance: {} });
-    }
+    // Format data for frontend
+    const formattedData = {};
+    attendanceRecords.forEach(record => {
+      formattedData[record.user._id] = {
+        user: record.user,
+        years: record.years
+      };
+    });
 
-    const yearData = attendanceRecord.years.get(year);
-    if (!yearData) {
-      return res.status(200).json({ attendance: {} });
-    }
-
-    // Transform Map data into plain object
-    const transformedData = {
-      [year]: {
-        months: Object.fromEntries(
-          Array.from(yearData.months.entries()).map(([month, monthData]) => [
-            month,
-            {
-              days: Object.fromEntries(
-                Array.from(monthData.days.entries()).map(([day, dayData]) => [
-                  day,
-                  {
-                    ...dayData,
-                    status: dayData.clockInTime ? "Present" : "Absent",
-                  },
-                ])
-              ),
-            },
-          ])
-        ),
-      },
-    };
-
-    res.status(200).json({ attendance: transformedData });
+    res.status(200).json(formattedData);
   } catch (error) {
-    console.error("Error fetching year data:", error);
+    console.error("In attendanceController; Error fetching year data:", error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -99,15 +73,34 @@ const getAttendanceByYear = async (req, res) => {
 const getAttendanceByMonth = async (req, res) => {
   const { year, month } = req.params;
 
+  // if (!year || !month) {
+  //   return res.status(400).json({ error: 'Year and month are required' });
+  // }
+
   try {
-    const attendanceRecord = await Attendance.findOne({
-      "attendance.year": year,
-    });
-    if (!attendanceRecord || !attendanceRecord.attendance[year].months[month]) {
-      return res.status(404).json({ error: "Attendance record not found" });
+    const attendanceRecord = await Attendance.findOne({ user: req.user._id });
+
+    if (!attendanceRecord) {
+      return res.status(200).json({});
     }
-    res.status(200).json(attendanceRecord.attendance[year].months[month]);
+
+    const yearData = attendanceRecord.years.get(year);
+    const monthData = yearData?.months?.get(month);
+
+    // Transform Map data to plain object
+    const formattedData = {
+      [year]: {
+        users: {
+          [req.user._id]: {
+            days: monthData?.days ? Object.fromEntries(monthData.days) : {},
+          },
+        },
+      },
+    };
+
+    res.status(200).json(formattedData);
   } catch (error) {
+    console.error("Error fetching attendance:", error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -141,24 +134,31 @@ const clockIn = async (req, res) => {
   const clockInTime = new Date().toLocaleTimeString();
 
   try {
-    let attendanceRecord = await Attendance.findOne();
+    let attendanceRecord = await Attendance.findOne({ user: req.user._id });
 
     if (!attendanceRecord) {
-      // Create new record with initialized Maps
-      attendanceRecord = new Attendance();
-      attendanceRecord.years = new Map();
-      attendanceRecord.years.set(year, {
-        months: new Map([
+      // Create new record with user reference
+      attendanceRecord = new Attendance({
+        user: req.user._id,
+        years: new Map([
           [
-            month,
+            year,
             {
-              days: new Map([
+              months: new Map([
                 [
-                  day,
+                  month,
                   {
-                    day: parseInt(day),
-                    status: "Present",
-                    clockInTime,
+                    days: new Map([
+                      [
+                        day,
+                        {
+                          // day: parseInt(day),
+                          status: "Present",
+                          clockInTime: clockInTime,
+                          clockOutTime: null,
+                        },
+                      ],
+                    ]),
                   },
                 ],
               ]),
@@ -167,27 +167,40 @@ const clockIn = async (req, res) => {
         ]),
       });
     } else {
-      if (!attendanceRecord.years) {
-        attendanceRecord.years = new Map();
+      // Update existing record
+      if (!attendanceRecord.years.has(year)) {
+        attendanceRecord.years.set(year, { months: new Map() });
       }
 
-      let yearDoc = attendanceRecord.years.get(year);
-      if (!yearDoc) {
-        yearDoc = { months: new Map() };
-        attendanceRecord.years.set(year, yearDoc);
+      const yearDoc = attendanceRecord.years.get(year);
+      if (!yearDoc.months.has(month)) {
+        yearDoc.months.set(month, { days: new Map() });
       }
 
-      let monthDoc = yearDoc.months.get(month);
-      if (!monthDoc) {
-        monthDoc = { days: new Map() };
-        yearDoc.months.set(month, monthDoc);
-      }
-
-      monthDoc.days.set(day, {
-        day: parseInt(day),
+      const monthDoc = yearDoc.months.get(month);
+      monthDoc.days.set(day.toString(), {
         status: "Present",
-        clockInTime,
+        clockInTime: clockInTime,
+        clockOutTime: null,
       });
+
+      // let yearDoc = attendanceRecord.years.get(year);
+      // if (!yearDoc) {
+      //   yearDoc = { months: new Map() };
+      //   attendanceRecord.years.set(year, yearDoc);
+      // }
+
+      // let monthDoc = yearDoc.months.get(month);
+      // if (!monthDoc) {
+      //   monthDoc = { days: new Map() };
+      //   yearDoc.months.set(month, monthDoc);
+      // }
+
+      // monthDoc.days.set(day, {
+      //   day: parseInt(day),
+      //   status: "Present",
+      //   clockInTime,
+      // });
 
       attendanceRecord.markModified("years");
     }
@@ -205,7 +218,7 @@ const clockOut = async (req, res) => {
   const clockOutTime = new Date().toLocaleTimeString();
 
   try {
-    const attendanceRecord = await Attendance.findOne();
+    const attendanceRecord = await Attendance.findOne({ user: req.user._id });
 
     if (!attendanceRecord || !attendanceRecord.years) {
       return res.status(404).json({ error: "Attendance record not found" });
